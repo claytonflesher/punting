@@ -11,21 +11,30 @@ defmodule Punting.Player do
 
   ### Server
 
+  def start_link(Punting.OnlineMode, options) do
+    {:ok, conn} = Punting.OnlineMode.start_link(options[:port], options, options[:timeout])
+    GenServer.start_link(
+      __MODULE__,
+      {Punting.OnlineMode, conn, options[:strategy], options[:scores] || :halt}
+    )
+  end
   def start_link(mode, options \\ [ ]) do
     GenServer.start_link(
       __MODULE__,
-      {mode, options[:mode_arg], options[:scores] || :halt}
+      {mode, options[:mode_arg], options[:strategy], options[:scores] || :halt}
     )
   end
 
   ### Client
 
-  def init({mode, mode_arg, scores}) do
+  def init({mode, mode_arg, strategy, scores}) do
+    IO.puts("init player")
     send(self(), :handshake)
-    {:ok, %__MODULE__{mode: mode, mode_arg: mode_arg, scores: scores}}
+    {:ok, %__MODULE__{mode: mode, mode_arg: mode_arg, strategy: strategy, scores: scores}, :hibernate}
   end
 
   def handle_info(:handshake, %{mode: mode, mode_arg: mode_arg} = player) do
+    IO.puts("handshake player")
     mode_state = mode.handshake(mode_arg, "The Mikinators")
     send(self(), :process_message)
     {:noreply, %__MODULE__{player | mode_state: mode_state}}
